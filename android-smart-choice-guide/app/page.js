@@ -6,10 +6,8 @@ import { fetchDevices } from "@/utils/fetchData";
 import DeviceCard from "@/components/DeviceCard";
 import DeviceModal from "@/components/DeviceModal";
 
-type Device = Awaited<ReturnType<typeof fetchDevices>>[number];
-
 export default function Home() {
-	const [devices, setDevices] = useState<Device[]>([]);
+	const [devices, setDevices] = useState([]);
 	const [search, setSearch] = useState("");
 	const [selectedBrand, setSelectedBrand] = useState("All");
 	const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
