@@ -1,7 +1,7 @@
 import Papa from 'papaparse';
 
 export const fetchDevices = async () => {
-  const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/1ZI_H6nuuGYXmDvq9Tp2XUbYeWIIK66hwnZK9tSzB89k/edit?gid=514180181#gid=514180181';
+  const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?output=csv';
 
   try {
     const response = await fetch(sheetCsvUrl);
