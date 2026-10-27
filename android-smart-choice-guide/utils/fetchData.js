@@ -1,7 +1,6 @@
 import Papa from 'papaparse';
 
 export const fetchDevices = async () => {
-  // PENTING: GANTI STRING INI DENGAN LINK PUBLISH TO WEB CSV ANDA YANG ASLI!
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
 
   try {
@@ -22,10 +21,9 @@ export const fetchDevices = async () => {
 
           if (headerRowIndex !== -1) {
             let currentLabelCol = -1;
-            let currentCategoryLabel = ""; // Menyimpan label dari baris 1 (Misal: "2 - 2.5 Juta")
+            let currentCategoryLabel = "";
 
             for (let c = 0; c < rows[headerRowIndex].length; c++) {
-              // Membaca baris 1 (index 0). Jika ada teks, simpan sebagai kategori saat ini
               if (rows[0] && rows[0][c] && rows[0][c].trim() !== "") {
                 currentCategoryLabel = rows[0][c].trim();
               }
@@ -43,19 +41,28 @@ export const fetchDevices = async () => {
                   model: modelName,
                   image_url: "", 
                   price: 0,
-                  category: currentCategoryLabel, // <--- Data kategori dimasukkan ke sini
+                  category: currentCategoryLabel,
                   chipset: "",
                   ram_rom: "",
                   screen_size: "",
                   camera: "",
+                  front_camera: "",
                   battery: "",
                   os: "",
-                  network: "" // <--- Tambahan untuk jaringan
+                  network: "",
+                  sim: "",
+                  charging: "",
+                  durability: "",
+                  material: "",
+                  update_support: "",
+                  features: "",
+                  best_for: ""
                 };
 
                 let ram = "";
                 let rom = "";
 
+                // Mengekstrak semua spesifikasi dari baris-baris di bawahnya
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase();
                   const val = rows[r][c]?.trim();
@@ -68,7 +75,15 @@ export const fetchDevices = async () => {
                   else if (label.includes("memori")) rom = val;
                   else if (label.includes("ram")) ram = val;
                   else if (label.includes("utama") && label.includes("kamera")) device.camera = val;
+                  else if (label.includes("depan") && label.includes("kamera")) device.front_camera = val;
                   else if (label.includes("baterai")) device.battery = val;
+                  else if (label.includes("pengecasan")) device.charging = val;
+                  else if (label.includes("ketahanan")) device.durability = val;
+                  else if (label.includes("material")) device.material = val;
+                  else if (label.includes("update")) device.update_support = val;
+                  else if (label.includes("keunggulan")) device.features = val;
+                  else if (label.includes("cocok untuk")) device.best_for = val;
+                  else if (label.includes("sim")) device.sim = val;
                   else if (label.includes("jaringan") || label.includes("network")) device.network = val;
                 }
                 
