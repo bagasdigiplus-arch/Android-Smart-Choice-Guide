@@ -8,51 +8,72 @@ export default function DeviceModal({ isOpen, device, onClose }) {
 
   const SpecItem = ({ icon: Icon, label, value }) => {
     if (!value) return null;
+
+    const renderValue = (text) => {
+      const lines = text.toString().split('\n').filter(line => line.trim() !== '');
+      const isList = lines.some(line => line.trim().startsWith('-') || line.trim().startsWith('•'));
+      
+      if (isList) {
+        return (
+          <ul className="list-disc pl-4 space-y-1.5 mt-1 marker:text-[#D23731]">
+            {lines.map((line, idx) => {
+              const cleanLine = line.trim().replace(/^[-•]\s*/, '');
+              if (!cleanLine) return null;
+              return (
+                <li key={idx} className="text-sm text-gray-900 dark:text-gray-100 font-bold leading-snug text-justify">
+                  {cleanLine}
+                </li>
+              );
+            })}
+          </ul>
+        );
+      }
+      return <p className="text-sm text-gray-900 dark:text-gray-100 font-bold leading-snug whitespace-pre-line mt-1">{text}</p>;
+    };
+
     return (
-      <div className="flex gap-3 items-start p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg shrink-0">
+      <div className="flex gap-3 items-start p-4 bg-gray-50 dark:bg-gray-800/50 rounded-sm border border-gray-100 dark:border-gray-800 transition-all hover:border-[#D23731]/40">
+        <div className="p-2 bg-red-100/50 dark:bg-red-900/30 text-[#D23731] rounded-sm shrink-0 mt-0.5">
           <Icon size={18} />
         </div>
-        <div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-          <p className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-snug whitespace-pre-line">{value}</p>
+        <div className="flex-1 w-full">
+          <p className="text-xs font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">{label}</p>
+          {renderValue(value)}
         </div>
       </div>
     );
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative animate-in fade-in zoom-in duration-300">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm transition-opacity">
+      <div className="bg-white dark:bg-gray-900 rounded-sm w-full max-w-4xl max-h-[90vh] overflow-hidden shadow-2xl flex flex-col md:flex-row relative animate-in fade-in zoom-in duration-300 border-t-4 border-[#D23731]">
         
-        {/* Tombol Tutup */}
         <button 
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 rounded-full transition-colors"
+          className="absolute top-4 right-4 z-10 p-2 bg-gray-100 hover:bg-red-100 dark:bg-gray-800 dark:hover:bg-red-900/40 rounded-sm transition-colors group"
         >
-          <X size={20} className="text-gray-600 dark:text-gray-300" />
+          <X size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-[#D23731]" />
         </button>
 
-        {/* Bagian Gambar Kiri */}
         <div className="w-full md:w-2/5 bg-gray-50 dark:bg-gray-800/50 p-8 flex items-center justify-center border-r border-gray-200 dark:border-gray-800">
           {device.image_url ? (
             <img src={device.image_url} alt={device.model} className="w-full h-auto object-contain max-h-80 drop-shadow-xl" />
           ) : (
-            <div className="w-48 h-64 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center shadow-inner">
-              <Smartphone size={48} className="text-gray-400" />
+            <div className="w-48 h-64 bg-gray-200 dark:bg-gray-700 rounded-sm flex flex-col gap-3 items-center justify-center shadow-inner text-gray-400">
+              <Smartphone size={48} />
+              <span className="font-black uppercase tracking-wider text-sm">No Image</span>
             </div>
           )}
         </div>
 
-        {/* Bagian Spesifikasi Kanan (Bisa di-scroll) */}
         <div className="w-full md:w-3/5 p-6 md:p-8 overflow-y-auto custom-scrollbar">
           <div className="mb-6">
-            <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold uppercase tracking-wider rounded-full">
+            <span className="px-3 py-1 bg-red-100/50 dark:bg-red-900/40 text-[#D23731] text-xs font-black uppercase tracking-widest rounded-sm border border-red-200 dark:border-red-900">
               {device.brand}
             </span>
-            <h2 className="text-3xl font-extrabold mt-3 text-gray-900 dark:text-white">{device.model}</h2>
+            <h2 className="text-3xl font-black mt-4 text-gray-900 dark:text-white uppercase tracking-tight">{device.model}</h2>
             {device.price > 0 && (
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2">
+              <p className="text-2xl font-extrabold text-[#D23731] mt-2">
                 Rp {Number(device.price).toLocaleString('id-ID')}
               </p>
             )}
@@ -70,20 +91,13 @@ export default function DeviceModal({ isOpen, device, onClose }) {
             <SpecItem icon={Wifi} label="Jaringan" value={device.network} />
             <SpecItem icon={HardDrive} label="SIM" value={device.sim} />
             <SpecItem icon={Box} label="Material" value={device.material} />
-            <SpecItem icon={RefreshCw} label="Dukungan Update" value={device.update_support} />
+            <SpecItem icon={RefreshCw} label="Update" value={device.update_support} />
           </div>
 
-          {/* Bagian Fitur Unggulan (Full Width) */}
           <div className="space-y-3">
-            {device.durability && (
-              <SpecItem icon={Shield} label="Ketahanan (Durability)" value={device.durability} />
-            )}
-            {device.features && (
-              <SpecItem icon={Star} label="Keunggulan" value={device.features} />
-            )}
-            {device.best_for && (
-              <SpecItem icon={ThumbsUp} label="Cocok Untuk" value={device.best_for} />
-            )}
+            <SpecItem icon={Shield} label="Ketahanan (Durability)" value={device.durability} />
+            <SpecItem icon={Star} label="Keunggulan" value={device.features} />
+            <SpecItem icon={ThumbsUp} label="Cocok Untuk" value={device.best_for} />
           </div>
         </div>
 
