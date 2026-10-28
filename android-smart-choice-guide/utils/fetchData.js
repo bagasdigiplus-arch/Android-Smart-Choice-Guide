@@ -14,6 +14,18 @@ export const fetchDevices = async () => {
         complete: (results) => {
           const rows = results.data;
           const devices = [];
+          const usageCategories = [];
+
+          // 1. MENGAMBIL DATA KATEGORI DARI KOLOM A & B (Baris 2 sampai 9 / Index 1-8)
+          // Asumsi A1 adalah header "Kategori", jadi kita mulai dari baris ke-2
+          for (let i = 1; i <= 8; i++) {
+            if (rows[i] && rows[i][0] && rows[i][0].trim() !== "") {
+              usageCategories.push({
+                name: rows[i][0].trim(),
+                description: rows[i][1] ? rows[i][1].trim() : ""
+              });
+            }
+          }
 
           let headerRowIndex = rows.findIndex(row => 
             row.some(cell => typeof cell === 'string' && cell.toLowerCase().includes("tipe device"))
@@ -42,7 +54,7 @@ export const fetchDevices = async () => {
                 
                 const device = {
                   id: modelName,
-                  brand: extractedBrand, // <-- Sekarang otomatis terisi dari Baris ke-2
+                  brand: extractedBrand,
                   model: modelName,
                   image_url: "", 
                   price: 0,
@@ -61,7 +73,7 @@ export const fetchDevices = async () => {
                   material: "",
                   update_support: "",
                   features: "",
-                  best_for: ""
+                  best_for: "" // Ini yang akan dicocokkan dengan filter sidebar
                 };
 
                 let ram = "";
@@ -96,12 +108,13 @@ export const fetchDevices = async () => {
               }
             }
           }
-          resolve(devices);
+          // KEMBALIKAN DATA DEVICES DAN KATEGORI BERSAMAAN
+          resolve({ devices, usageCategories });
         },
       });
     });
   } catch (error) {
     console.error("Error fetching data:", error);
-    return [];
+    return { devices: [], usageCategories: [] };
   }
 };
