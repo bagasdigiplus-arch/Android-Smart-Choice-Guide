@@ -1,23 +1,33 @@
 import Papa from 'papaparse';
 
 export const fetchDevices = async () => {
+  // 1. LINK DATA UTAMA (SPEK) - Sudah dimasukkan
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
+  
+  // 2. LINK DATA HARGA - Sudah dimasukkan
+  const priceCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=394306194&single=true&output=csv';
 
   try {
-    const response = await fetch(sheetCsvUrl);
-    const csvText = await response.text();
+    // Tarik kedua data secara bersamaan (Parallel Fetching untuk kecepatan loading)
+    const [responseSpec, responsePrice] = await Promise.all([
+      fetch(sheetCsvUrl),
+      fetch(priceCsvUrl)
+    ]);
+
+    const csvTextSpec = await responseSpec.text();
+    const csvTextPrice = await responsePrice.text();
 
     return new Promise((resolve) => {
-      Papa.parse(csvText, {
+      // TAHAP 1: PARSING DATA SPESIFIKASI DAN KATEGORI
+      Papa.parse(csvTextSpec, {
         header: false, 
         skipEmptyLines: true,
-        complete: (results) => {
-          const rows = results.data;
-          const devices = [];
+        complete: (resultsSpec) => {
+          const rows = resultsSpec.data;
+          let devices = [];
           const usageCategories = [];
 
-          // 1. MENGAMBIL DATA KATEGORI DARI KOLOM A & B (Baris 2 sampai 9 / Index 1-8)
-          // Asumsi A1 adalah header "Kategori", jadi kita mulai dari baris ke-2
+          // Mengambil kategori penggunaan (Baris 2-9)
           for (let i = 1; i <= 8; i++) {
             if (rows[i] && rows[i][0] && rows[i][0].trim() !== "") {
               usageCategories.push({
@@ -47,7 +57,6 @@ export const fetchDevices = async () => {
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
                 
-                // MENGAMBIL NAMA BRAND DARI BARIS 2 (Index 1)
                 const extractedBrand = (rows[1] && rows[1][c] && rows[1][c].trim() !== "") 
                                         ? rows[1][c].trim() 
                                         : modelName.split(' ')[0];
@@ -57,7 +66,7 @@ export const fetchDevices = async () => {
                   brand: extractedBrand,
                   model: modelName,
                   image_url: "", 
-                  price: 0,
+                  price: 0, // Akan diisi di Tahap 2
                   category: currentCategoryLabel,
                   chipset: "",
                   ram_rom: "",
@@ -73,7 +82,7 @@ export const fetchDevices = async () => {
                   material: "",
                   update_support: "",
                   features: "",
-                  best_for: "" // Ini yang akan dicocokkan dengan filter sidebar
+                  best_for: ""
                 };
 
                 let ram = "";
@@ -108,13 +117,47 @@ export const fetchDevices = async () => {
               }
             }
           }
-          // KEMBALIKAN DATA DEVICES DAN KATEGORI BERSAMAAN
-          resolve({ devices, usageCategories });
+
+          // TAHAP 2: PARSING DATA HARGA & MENGGABUNGKANNYA
+          Papa.parse(csvTextPrice, {
+            header: false,
+            skipEmptyLines: true,
+            complete: (resultsPrice) => {
+              const priceRows = resultsPrice.data;
+              
+              devices = devices.map(device => {
+                let matchedPrice = 0;
+                
+                for (let r = 0; r < priceRows.length; r++) {
+                  const rowTextContent = priceRows[r].join(" ").toLowerCase();
+                  const targetModelName = device.model.toLowerCase();
+
+                  if (rowTextContent.includes(targetModelName)) {
+                    for (let c = 0; c < priceRows[r].length; c++) {
+                      const cleanNumberStr = String(priceRows[r][c]).replace(/[^0-9]/g, '');
+                      
+                      if (cleanNumberStr.length > 5) {
+                        matchedPrice = Number(cleanNumberStr);
+                        break;
+                      }
+                    }
+                  }
+                  if (matchedPrice > 0) break;
+                }
+
+                return {
+                  ...device,
+                  price: matchedPrice
+                };
+              });
+
+              resolve({ devices, usageCategories });
+            }
+          });
+
         },
       });
     });
   } catch (error) {
     console.error("Error fetching data:", error);
-    return { devices: [], usageCategories: [] };
-  }
-};
+    return { devices: [], usage
