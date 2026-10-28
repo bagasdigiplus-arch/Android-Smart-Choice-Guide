@@ -1,6 +1,7 @@
 import Papa from 'papaparse';
 
 export const fetchDevices = async () => {
+  // PENTING: GANTI STRING INI DENGAN LINK PUBLISH TO WEB CSV ANDA YANG ASLI!
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
 
   try {
@@ -10,7 +11,7 @@ export const fetchDevices = async () => {
     return new Promise((resolve) => {
       Papa.parse(csvText, {
         header: false, 
-        skipEmptyLines: true,
+        skipEmptyLines: false, // KITA MATIKAN AGAR POSISI BARIS KE-3 TIDAK BERGESER
         complete: (results) => {
           const rows = results.data;
           const devices = [];
@@ -24,6 +25,7 @@ export const fetchDevices = async () => {
             let currentCategoryLabel = "";
 
             for (let c = 0; c < rows[headerRowIndex].length; c++) {
+              // 1. Ambil Kategori Harga dari Baris ke-1 (Index 0)
               if (rows[0] && rows[0][c] && rows[0][c].trim() !== "") {
                 currentCategoryLabel = rows[0][c].trim();
               }
@@ -35,15 +37,18 @@ export const fetchDevices = async () => {
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
                 
-                // MENGAMBIL NAMA BRAND DARI BARIS 3 (index 2)
-                // Jika baris 3 kosong, sistem akan otomatis menggunakan kata pertama dari nama model sebagai cadangan
-                const extractedBrand = (rows[2] && rows[2][c] && rows[2][c].trim() !== "") 
-                                        ? rows[2][c].trim() 
-                                        : modelName.split(' ')[0];
+                // 2. MENGAMBIL NAMA BRAND DARI BARIS KE-3 (Index 2)
+                let brandName = "";
+                if (rows[2] && rows[2][c] && rows[2][c].trim() !== "") {
+                  brandName = rows[2][c].trim();
+                } else {
+                  // Fallback jika tidak sengaja terlewat
+                  brandName = modelName.split(' ')[0]; 
+                }
                 
                 const device = {
                   id: modelName,
-                  brand: extractedBrand, // <-- Data brand dimasukkan ke sini
+                  brand: brandName, // <-- Data brand murni masuk ke sini
                   model: modelName,
                   image_url: "", 
                   price: 0,
@@ -68,7 +73,7 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
-                // Mengekstrak spesifikasi lainnya
+                // 3. Mengekstrak spesifikasi lainnya
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase();
                   const val = rows[r][c]?.trim();
