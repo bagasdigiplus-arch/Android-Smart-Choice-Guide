@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from 'react';
-import { Search, BookOpen, Target } from 'lucide-react'; 
+import { Search, BookOpen, Target, Smartphone } from 'lucide-react'; 
 import { fetchDevices } from '@/utils/fetchData';
 import DeviceCard from '@/components/DeviceCard';
 import DeviceModal from '@/components/DeviceModal';
@@ -10,9 +10,10 @@ export default function Home() {
   const [usageCategories, setUsageCategories] = useState([]); 
   const [search, setSearch] = useState("");
   
-  // STATE DIUBAH MENJADI ARRAY UNTUK MULTIPLE CHOICE
+  // STATE MULTIPLE CHOICE
   const [selectedPriceCategories, setSelectedPriceCategories] = useState(["All"]);
   const [selectedUsages, setSelectedUsages] = useState(["All"]); 
+  const [selectedBrands, setSelectedBrands] = useState(["All"]); // <-- State baru untuk Brand
   
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,53 +29,56 @@ export default function Home() {
   }, []);
 
   const priceCategories = ["All", ...new Set(devices.map(d => d.category).filter(Boolean))];
+  
+  // Mengekstrak daftar merek unik dan mengurutkannya sesuai abjad
+  const uniqueBrands = [...new Set(devices.map(d => d.brand).filter(Boolean))].sort();
 
-  // LOGIKA MULTIPLE CHOICE UNTUK KATEGORI HARGA
+  // LOGIKA MULTIPLE CHOICE KATEGORI HARGA
   const togglePriceCategory = (category) => {
     if (category === "All") {
-      setSelectedPriceCategories(["All"]); // Jika klik All, reset semua
+      setSelectedPriceCategories(["All"]); 
       return;
     }
-
     let newSelected = selectedPriceCategories.filter(c => c !== "All");
-    
     if (newSelected.includes(category)) {
-      newSelected = newSelected.filter(c => c !== category); // Hapus jika sudah ada
+      newSelected = newSelected.filter(c => c !== category);
     } else {
-      newSelected.push(category); // Tambah jika belum ada
+      newSelected.push(category); 
     }
-
-    // Jika user menghapus semua centang, otomatis kembalikan ke "All"
-    if (newSelected.length === 0) {
-      setSelectedPriceCategories(["All"]);
-    } else {
-      setSelectedPriceCategories(newSelected);
-    }
+    setSelectedPriceCategories(newSelected.length === 0 ? ["All"] : newSelected);
   };
 
-  // LOGIKA MULTIPLE CHOICE UNTUK KEBUTUHAN PENGGUNAAN
+  // LOGIKA MULTIPLE CHOICE KEBUTUHAN PENGGUNAAN
   const toggleUsage = (usage) => {
     if (usage === "All") {
-      setSelectedUsages(["All"]); // Jika klik Semua, reset semua
+      setSelectedUsages(["All"]);
       return;
     }
-
     let newSelected = selectedUsages.filter(u => u !== "All");
-    
     if (newSelected.includes(usage)) {
       newSelected = newSelected.filter(u => u !== usage);
     } else {
       newSelected.push(usage);
     }
-
-    if (newSelected.length === 0) {
-      setSelectedUsages(["All"]);
-    } else {
-      setSelectedUsages(newSelected);
-    }
+    setSelectedUsages(newSelected.length === 0 ? ["All"] : newSelected);
   };
 
-  // LOGIKA FILTERING MULTIPLE ARRAY
+  // LOGIKA MULTIPLE CHOICE UNTUK BRAND
+  const toggleBrand = (brand) => {
+    if (brand === "All") {
+      setSelectedBrands(["All"]);
+      return;
+    }
+    let newSelected = selectedBrands.filter(b => b !== "All");
+    if (newSelected.includes(brand)) {
+      newSelected = newSelected.filter(b => b !== brand);
+    } else {
+      newSelected.push(brand);
+    }
+    setSelectedBrands(newSelected.length === 0 ? ["All"] : newSelected);
+  };
+
+  // LOGIKA FILTERING GABUNGAN
   const filteredDevices = useMemo(() => {
     return devices.filter(device => {
       const matchSearch = device.model?.toLowerCase().includes(search.toLowerCase()) || 
@@ -88,9 +92,13 @@ export default function Home() {
                            device.best_for && device.best_for.toLowerCase().includes(usage.toLowerCase())
                          );
 
-      return matchSearch && matchPrice && matchUsage;
+      const matchBrand = selectedBrands.includes("All") || 
+                         selectedBrands.includes(device.brand);
+
+      // Pastikan semua kriteria cocok (AND logic)
+      return matchSearch && matchPrice && matchUsage && matchBrand;
     });
-  }, [devices, search, selectedPriceCategories, selectedUsages]);
+  }, [devices, search, selectedPriceCategories, selectedUsages, selectedBrands]);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-300">
@@ -117,51 +125,97 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-8">
         
-        {/* SIDEBAR KIRI */}
+        {/* SIDEBAR KIRI (Sticky container) */}
         <aside className="w-full md:w-72 shrink-0">
-          <div className="sticky top-28 bg-white dark:bg-gray-900 p-5 rounded-sm border border-gray-200 dark:border-gray-800 shadow-sm">
-            <div className="flex items-center gap-2 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3">
-              <Target className="text-[#D23731]" size={20} />
-              <h3 className="font-black text-[15px] text-[#D23731] uppercase tracking-wide">Kebutuhan Penggunaan</h3>
-            </div>
-            <ul className="space-y-1.5">
-              <li>
-                <button 
-                  onClick={() => toggleUsage("All")} 
-                  className={`w-full text-left px-3 py-2.5 rounded-sm text-sm font-bold transition-all border-l-4 ${
-                    selectedUsages.includes("All") 
-                      ? "bg-red-50 dark:bg-red-900/20 text-[#D23731] border-[#D23731]" 
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent"
-                  }`}
-                >
-                  Semua Kebutuhan
-                </button>
-              </li>
-              {usageCategories.map((cat, idx) => {
-                const isSelected = selectedUsages.includes(cat.name);
-                return (
-                  <li key={idx}>
-                    <button 
-                      onClick={() => toggleUsage(cat.name)} 
-                      className={`w-full flex flex-col text-left px-3 py-2.5 rounded-sm transition-all border-l-4 ${
-                        isSelected 
-                          ? "bg-red-50 dark:bg-red-900/20 border-[#D23731]" 
-                          : "hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent group"
-                      }`}
-                    >
-                      <span className={`text-sm font-bold ${isSelected ? "text-[#D23731]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#D23731]"}`}>
-                        {cat.name}
-                      </span>
-                      {cat.description && (
-                        <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 mt-1 leading-snug">
-                          {cat.description}
+          <div className="sticky top-28 space-y-6">
+            
+            {/* BOX 1: KEBUTUHAN PENGGUNAAN */}
+            <div className="bg-white dark:bg-gray-900 p-5 rounded-sm border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3">
+                <Target className="text-[#D23731]" size={20} />
+                <h3 className="font-black text-[15px] text-[#D23731] uppercase tracking-wide">Kebutuhan Penggunaan</h3>
+              </div>
+              <ul className="space-y-1.5 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                <li>
+                  <button 
+                    onClick={() => toggleUsage("All")} 
+                    className={`w-full text-left px-3 py-2.5 rounded-sm text-sm font-bold transition-all border-l-4 ${
+                      selectedUsages.includes("All") 
+                        ? "bg-red-50 dark:bg-red-900/20 text-[#D23731] border-[#D23731]" 
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent"
+                    }`}
+                  >
+                    Semua Kebutuhan
+                  </button>
+                </li>
+                {usageCategories.map((cat, idx) => {
+                  const isSelected = selectedUsages.includes(cat.name);
+                  return (
+                    <li key={idx}>
+                      <button 
+                        onClick={() => toggleUsage(cat.name)} 
+                        className={`w-full flex flex-col text-left px-3 py-2.5 rounded-sm transition-all border-l-4 ${
+                          isSelected 
+                            ? "bg-red-50 dark:bg-red-900/20 border-[#D23731]" 
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent group"
+                        }`}
+                      >
+                        <span className={`text-sm font-bold ${isSelected ? "text-[#D23731]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#D23731]"}`}>
+                          {cat.name}
                         </span>
-                      )}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                        {cat.description && (
+                          <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 mt-1 leading-snug">
+                            {cat.description}
+                          </span>
+                        )}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            {/* BOX 2: BRAND / MEREK */}
+            <div className="bg-white dark:bg-gray-900 p-5 rounded-sm border border-gray-200 dark:border-gray-800 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 border-b border-gray-100 dark:border-gray-800 pb-3">
+                <Smartphone className="text-[#D23731]" size={20} />
+                <h3 className="font-black text-[15px] text-[#D23731] uppercase tracking-wide">Merek</h3>
+              </div>
+              <ul className="space-y-1.5 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                <li>
+                  <button 
+                    onClick={() => toggleBrand("All")} 
+                    className={`w-full text-left px-3 py-2.5 rounded-sm text-sm font-bold transition-all border-l-4 ${
+                      selectedBrands.includes("All") 
+                        ? "bg-red-50 dark:bg-red-900/20 text-[#D23731] border-[#D23731]" 
+                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent"
+                    }`}
+                  >
+                    Semua Merek
+                  </button>
+                </li>
+                {uniqueBrands.map((brand, idx) => {
+                  const isSelected = selectedBrands.includes(brand);
+                  return (
+                    <li key={idx}>
+                      <button 
+                        onClick={() => toggleBrand(brand)} 
+                        className={`w-full text-left px-3 py-2.5 rounded-sm text-sm font-bold transition-all border-l-4 ${
+                          isSelected 
+                            ? "bg-red-50 dark:bg-red-900/20 text-[#D23731] border-[#D23731]" 
+                            : "hover:bg-gray-50 dark:hover:bg-gray-800 border-transparent group"
+                        }`}
+                      >
+                        <span className={`text-sm font-bold uppercase ${isSelected ? "text-[#D23731]" : "text-gray-700 dark:text-gray-300 group-hover:text-[#D23731]"}`}>
+                          {brand}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            
           </div>
         </aside>
 
