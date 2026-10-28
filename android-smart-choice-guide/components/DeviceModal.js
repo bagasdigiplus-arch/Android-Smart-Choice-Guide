@@ -6,16 +6,47 @@ import {
 export default function DeviceModal({ isOpen, device, onClose }) {
   if (!isOpen || !device) return null;
 
+  // Komponen Helper untuk merender spesifikasi
   const SpecItem = ({ icon: Icon, label, value }) => {
     if (!value) return null;
+
+    // Logika untuk mengubah teks strip (-) menjadi bullet points rapi
+    const renderValue = (text) => {
+      // Memisahkan teks berdasarkan baris baru (Enter di dalam sel Google Sheets)
+      const lines = text.toString().split('\n').filter(line => line.trim() !== '');
+      
+      // Mengecek apakah ada baris yang diawali dengan tanda strip (-) atau bullet (•)
+      const isList = lines.some(line => line.trim().startsWith('-') || line.trim().startsWith('•'));
+      
+      if (isList) {
+        return (
+          <ul className="list-disc pl-4 space-y-1.5 mt-1 marker:text-blue-500">
+            {lines.map((line, idx) => {
+              // Menghapus tanda strip/bullet bawaan agar diganti dengan titik rapi dari Tailwind
+              const cleanLine = line.trim().replace(/^[-•]\s*/, '');
+              if (!cleanLine) return null;
+              return (
+                <li key={idx} className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-snug text-justify">
+                  {cleanLine}
+                </li>
+              );
+            })}
+          </ul>
+        );
+      }
+
+      // Jika bukan list (teks biasa)
+      return <p className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-snug whitespace-pre-line mt-1">{text}</p>;
+    };
+
     return (
-      <div className="flex gap-3 items-start p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800">
-        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg shrink-0">
+      <div className="flex gap-3 items-start p-4 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-100 dark:border-gray-800 transition-all hover:border-blue-200 dark:hover:border-blue-900/50">
+        <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg shrink-0 mt-0.5">
           <Icon size={18} />
         </div>
-        <div>
-          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">{label}</p>
-          <p className="text-sm text-gray-900 dark:text-gray-100 font-medium leading-snug whitespace-pre-line">{value}</p>
+        <div className="flex-1 w-full">
+          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</p>
+          {renderValue(value)}
         </div>
       </div>
     );
@@ -75,15 +106,9 @@ export default function DeviceModal({ isOpen, device, onClose }) {
 
           {/* Bagian Fitur Unggulan (Full Width) */}
           <div className="space-y-3">
-            {device.durability && (
-              <SpecItem icon={Shield} label="Ketahanan (Durability)" value={device.durability} />
-            )}
-            {device.features && (
-              <SpecItem icon={Star} label="Keunggulan" value={device.features} />
-            )}
-            {device.best_for && (
-              <SpecItem icon={ThumbsUp} label="Cocok Untuk" value={device.best_for} />
-            )}
+            <SpecItem icon={Shield} label="Ketahanan (Durability)" value={device.durability} />
+            <SpecItem icon={Star} label="Keunggulan" value={device.features} />
+            <SpecItem icon={ThumbsUp} label="Cocok Untuk" value={device.best_for} />
           </div>
         </div>
 
