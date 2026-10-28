@@ -35,9 +35,15 @@ export const fetchDevices = async () => {
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
                 
+                // MENGAMBIL NAMA BRAND DARI BARIS 3 (index 2)
+                // Jika baris 3 kosong, sistem akan otomatis menggunakan kata pertama dari nama model sebagai cadangan
+                const extractedBrand = (rows[2] && rows[2][c] && rows[2][c].trim() !== "") 
+                                        ? rows[2][c].trim() 
+                                        : modelName.split(' ')[0];
+                
                 const device = {
                   id: modelName,
-                  brand: modelName.split(' ')[0], 
+                  brand: extractedBrand, // <-- Data brand dimasukkan ke sini
                   model: modelName,
                   image_url: "", 
                   price: 0,
@@ -62,7 +68,7 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
-                // Mengekstrak semua spesifikasi dari baris-baris di bawahnya
+                // Mengekstrak spesifikasi lainnya
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase();
                   const val = rows[r][c]?.trim();
