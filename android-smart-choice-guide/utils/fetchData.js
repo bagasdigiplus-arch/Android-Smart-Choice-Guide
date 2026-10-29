@@ -1,25 +1,14 @@
 import Papa from 'papaparse';
 
-// FITUR BARU: Auto-Convert Link Google Drive Biasa Menjadi Direct Link
+// Fitur Auto-Convert Link Google Drive
 const formatDriveLink = (link) => {
   if (!link) return "";
   const url = link.trim();
-  
-  // Ambil ID unik dari link Google Drive biasa (format: /file/d/ID/...)
   const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
-  if (idMatch && idMatch[1]) {
-    // Mengubahnya menjadi link khusus untuk menampilkan gambar di website
-    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
-  }
-  
-  // Jika link sudah dalam format ID param (?id=...)
+  if (idMatch && idMatch[1]) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
   const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-  if (idParamMatch && idParamMatch[1]) {
-    return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
-  }
-  
-  // Jika bukan link Google Drive (misal link gambar dari web lain), biarkan apa adanya
-  return url;
+  if (idParamMatch && idParamMatch[1]) return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+  return url; // Kembalikan link asli jika bukan dari Google Drive
 };
 
 export const fetchDevices = async () => {
@@ -44,6 +33,7 @@ export const fetchDevices = async () => {
           let devices = [];
           const usageCategories = [];
 
+          // Ambil daftar kategori dari baris atas
           for (let i = 1; i <= 8; i++) {
             if (rows[i] && rows[i][0] && rows[i][0].trim() !== "") {
               usageCategories.push({
@@ -72,22 +62,15 @@ export const fetchDevices = async () => {
                 currentLabelCol = c; 
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
-                
                 const extractedBrand = (rows[1] && rows[1][c] && rows[1][c].trim() !== "") 
                                         ? rows[1][c].trim() 
                                         : modelName.split(' ')[0];
-                
-                // MENGAMBIL GAMBAR DARI BARIS 19 DAN LANGSUNG DI-CONVERT
-                let extractedImage = "";
-                if (rows[18] && rows[18][c] && rows[18][c].trim() !== "") {
-                  extractedImage = formatDriveLink(rows[18][c]);
-                }
                 
                 const device = {
                   id: modelName,
                   brand: extractedBrand,
                   model: modelName,
-                  image_url: extractedImage, 
+                  image_url: "", 
                   price: 0,
                   category: currentCategoryLabel,
                   chipset: "",
@@ -110,11 +93,18 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
+                // Mengekstrak Spesifikasi & Gambar Otomatis
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
-                  const label = rows[r][currentLabelCol]?.trim().toLowerCase();
+                  const label = rows[r][currentLabelCol]?.trim().toLowerCase() || "";
                   const val = rows[r][c]?.trim();
 
-                  if (!label || !val) continue; 
+                  if (!val) continue; 
+
+                  // SMART IMAGE DETECTOR: Jika isi teks berupa URL/Link, otomatis jadikan gambar
+                  if (val.includes("http://") || val.includes("https://") || val.includes("drive.google.com")) {
+                    device.image_url = formatDriveLink(val);
+                    continue; 
+                  }
 
                   if (label.includes("tampilan")) device.screen_size = val;
                   else if (label.includes("chipset")) device.chipset = val;
@@ -132,10 +122,6 @@ export const fetchDevices = async () => {
                   else if (label.includes("cocok untuk")) device.best_for = val;
                   else if (label.includes("sim")) device.sim = val;
                   else if (label.includes("jaringan") || label.includes("network")) device.network = val;
-                  // Jika ada baris bernama gambar di bawah, juga dikonversi otomatis
-                  else if (label.includes("gambar") || label.includes("image") || label.includes("foto")) {
-                    device.image_url = formatDriveLink(val);
-                  }
                 }
                 
                 device.ram_rom = `${ram} / ${rom}`;
@@ -144,6 +130,7 @@ export const fetchDevices = async () => {
             }
           }
 
+          // SMART PRICE MATCHER
           Papa.parse(csvTextPrice, {
             header: false,
             skipEmptyLines: true,
@@ -152,14 +139,21 @@ export const fetchDevices = async () => {
               
               devices = devices.map(device => {
                 let matchedPrice = 0;
+                // Pecah nama HP menjadi kata kunci untuk pencarian fleksibel (Misal: "Redmi", "A7", "Pro")
+                const targetWords = device.model.toLowerCase().split(" ").filter(w => w.length > 1);
+
                 for (let r = 0; r < priceRows.length; r++) {
                   const rowTextContent = priceRows[r].join(" ").toLowerCase();
-                  const targetModelName = device.model.toLowerCase();
+                  
+                  // Cek apakah SEMUA kata kunci nama HP muncul di baris harga tersebut
+                  const isMatch = targetWords.every(word => rowTextContent.includes(word));
 
-                  if (rowTextContent.includes(targetModelName)) {
+                  if (isMatch) {
                     for (let c = 0; c < priceRows[r].length; c++) {
+                      // Bersihkan sel dari huruf dan titik, sisakan angkanya saja
                       const cleanNumberStr = String(priceRows[r][c]).replace(/[^0-9]/g, '');
-                      if (cleanNumberStr.length > 5) {
+                      // Asumsi harga HP minimum ratusan ribu rupiah (minimal 6 digit angka)
+                      if (cleanNumberStr.length >= 6) {
                         matchedPrice = Number(cleanNumberStr);
                         break;
                       }
