@@ -1,13 +1,16 @@
 "use client";
+
 import { useState, useEffect, useMemo } from 'react';
 import { Search, BookOpen, Target, Smartphone } from 'lucide-react'; 
 import { fetchDevices } from '@/utils/fetchData';
+import { loadPrices, modelKey } from '@/utils/price-loader'; // <-- BARU: loader harga
 import DeviceCard from '@/components/DeviceCard';
 import DeviceModal from '@/components/DeviceModal';
 
 export default function Home() {
   const [devices, setDevices] = useState([]);
   const [usageCategories, setUsageCategories] = useState([]); 
+  const [prices, setPrices] = useState({}); // <-- BARU: daftar harga { kunciModel: [varian...] }
   const [search, setSearch] = useState("");
   
   // STATE MULTIPLE CHOICE
@@ -20,13 +23,32 @@ export default function Home() {
 
   useEffect(() => {
     const loadData = async () => {
-      const data = await fetchDevices();
-      setDevices(data.devices || []);
-      setUsageCategories(data.usageCategories || []);
-      setIsLoading(false);
+      try {
+        const data = await fetchDevices();
+        setDevices(data.devices || []);
+        setUsageCategories(data.usageCategories || []);
+      } catch (e) {
+        console.error("Data HP gagal dimuat:", e);
+      } finally {
+        setIsLoading(false); // spinner tidak akan macet walau fetch gagal
+      }
     };
     loadData();
   }, []);
+
+  // BARU: muat harga terpisah, supaya kegagalan harga tidak menghalangi data HP
+  useEffect(() => {
+    loadPrices()
+      .then(setPrices)
+      .catch((e) => console.error("Harga gagal dimuat:", e));
+  }, []);
+
+  // BARU: bantu debugging, tampilkan di Console HP mana yang namanya tidak cocok dengan daftar harga
+  useEffect(() => {
+    if (!devices.length || !Object.keys(prices).length) return;
+    const tanpaHarga = devices.filter((d) => !prices[modelKey(d.model)]).map((d) => d.model);
+    if (tanpaHarga.length) console.warn(`[harga] ${tanpaHarga.length} HP tanpa harga:`, tanpaHarga);
+  }, [devices, prices]);
 
   const priceCategories = ["All", ...new Set(devices.map(d => d.category).filter(Boolean))];
   
@@ -262,7 +284,7 @@ export default function Home() {
         </div>
       </main>
 
-      <DeviceModal isOpen={!!selectedDevice} device={selectedDevice} onClose={() => setSelectedDevice(null)} />
+      <DeviceModal isOpen={!!selectedDevice} device={selectedDevice} prices={prices} onClose={() => setSelectedDevice(null)} />
     </div>
   );
 }
