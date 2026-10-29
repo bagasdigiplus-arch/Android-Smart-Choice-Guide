@@ -1,14 +1,13 @@
 import Papa from 'papaparse';
 
 export const fetchDevices = async () => {
-  // 1. LINK DATA UTAMA (SPEK) - Sudah dimasukkan
+  // 1. LINK DATA UTAMA (SPEK)
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
   
-  // 2. LINK DATA HARGA - Sudah dimasukkan
+  // 2. LINK DATA HARGA
   const priceCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=394306194&single=true&output=csv';
 
   try {
-    // Tarik kedua data secara bersamaan (Parallel Fetching untuk kecepatan loading)
     const [responseSpec, responsePrice] = await Promise.all([
       fetch(sheetCsvUrl),
       fetch(priceCsvUrl)
@@ -18,7 +17,6 @@ export const fetchDevices = async () => {
     const csvTextPrice = await responsePrice.text();
 
     return new Promise((resolve) => {
-      // TAHAP 1: PARSING DATA SPESIFIKASI DAN KATEGORI
       Papa.parse(csvTextSpec, {
         header: false, 
         skipEmptyLines: true,
@@ -27,7 +25,6 @@ export const fetchDevices = async () => {
           let devices = [];
           const usageCategories = [];
 
-          // Mengambil kategori penggunaan (Baris 2-9)
           for (let i = 1; i <= 8; i++) {
             if (rows[i] && rows[i][0] && rows[i][0].trim() !== "") {
               usageCategories.push({
@@ -57,16 +54,23 @@ export const fetchDevices = async () => {
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
                 
+                // Mengambil nama Brand dari Baris 2 (Index 1)
                 const extractedBrand = (rows[1] && rows[1][c] && rows[1][c].trim() !== "") 
                                         ? rows[1][c].trim() 
                                         : modelName.split(' ')[0];
+                
+                // MENGAMBIL LINK GAMBAR DARI BARIS 19 (Index 18)
+                let extractedImage = "";
+                if (rows[18] && rows[18][c] && rows[18][c].trim() !== "") {
+                  extractedImage = rows[18][c].trim();
+                }
                 
                 const device = {
                   id: modelName,
                   brand: extractedBrand,
                   model: modelName,
-                  image_url: "", 
-                  price: 0, // Akan diisi di Tahap 2
+                  image_url: extractedImage, // <-- Gambar masuk ke sini otomatis
+                  price: 0, 
                   category: currentCategoryLabel,
                   chipset: "",
                   ram_rom: "",
@@ -88,6 +92,7 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
+                // Mengekstrak spesifikasi lainnya dari baris-baris di bawahnya
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase();
                   const val = rows[r][c]?.trim();
@@ -110,6 +115,8 @@ export const fetchDevices = async () => {
                   else if (label.includes("cocok untuk")) device.best_for = val;
                   else if (label.includes("sim")) device.sim = val;
                   else if (label.includes("jaringan") || label.includes("network")) device.network = val;
+                  // Fallback: Jika ada label spesifik bertuliskan gambar, tetap diutamakan
+                  else if (label.includes("gambar") || label.includes("image") || label.includes("foto")) device.image_url = val;
                 }
                 
                 device.ram_rom = `${ram} / ${rom}`;
@@ -118,7 +125,7 @@ export const fetchDevices = async () => {
             }
           }
 
-          // TAHAP 2: PARSING DATA HARGA & MENGGABUNGKANNYA
+          // Proses Harga
           Papa.parse(csvTextPrice, {
             header: false,
             skipEmptyLines: true,
@@ -127,7 +134,6 @@ export const fetchDevices = async () => {
               
               devices = devices.map(device => {
                 let matchedPrice = 0;
-                
                 for (let r = 0; r < priceRows.length; r++) {
                   const rowTextContent = priceRows[r].join(" ").toLowerCase();
                   const targetModelName = device.model.toLowerCase();
@@ -135,7 +141,6 @@ export const fetchDevices = async () => {
                   if (rowTextContent.includes(targetModelName)) {
                     for (let c = 0; c < priceRows[r].length; c++) {
                       const cleanNumberStr = String(priceRows[r][c]).replace(/[^0-9]/g, '');
-                      
                       if (cleanNumberStr.length > 5) {
                         matchedPrice = Number(cleanNumberStr);
                         break;
@@ -144,11 +149,7 @@ export const fetchDevices = async () => {
                   }
                   if (matchedPrice > 0) break;
                 }
-
-                return {
-                  ...device,
-                  price: matchedPrice
-                };
+                return { ...device, price: matchedPrice };
               });
 
               resolve({ devices, usageCategories });
