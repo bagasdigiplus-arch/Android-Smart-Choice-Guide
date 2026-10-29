@@ -1,6 +1,5 @@
 import Papa from 'papaparse';
 
-// Fitur Auto-Convert Link Google Drive
 const formatDriveLink = (link) => {
   if (!link) return "";
   const url = link.trim();
@@ -8,12 +7,14 @@ const formatDriveLink = (link) => {
   if (idMatch && idMatch[1]) return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
   const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (idParamMatch && idParamMatch[1]) return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
-  return url; // Kembalikan link asli jika bukan dari Google Drive
+  return url; 
 };
 
 export const fetchDevices = async () => {
   const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
-  const priceCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=394306194&single=true&output=csv';
+  
+  // MENGGUNAKAN LINK HARGA TERBARU ANDA
+  const priceCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=19220526&single=true&output=csv';
 
   try {
     const [responseSpec, responsePrice] = await Promise.all([
@@ -33,7 +34,6 @@ export const fetchDevices = async () => {
           let devices = [];
           const usageCategories = [];
 
-          // Ambil daftar kategori dari baris atas
           for (let i = 1; i <= 8; i++) {
             if (rows[i] && rows[i][0] && rows[i][0].trim() !== "") {
               usageCategories.push({
@@ -71,7 +71,7 @@ export const fetchDevices = async () => {
                   brand: extractedBrand,
                   model: modelName,
                   image_url: "", 
-                  price: 0,
+                  prices: [], // UBAH: Dari price (angka tunggal) menjadi array penyimpan banyak harga
                   category: currentCategoryLabel,
                   chipset: "",
                   ram_rom: "",
@@ -93,14 +93,12 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
-                // Mengekstrak Spesifikasi & Gambar Otomatis
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase() || "";
                   const val = rows[r][c]?.trim();
 
                   if (!val) continue; 
 
-                  // SMART IMAGE DETECTOR: Jika isi teks berupa URL/Link, otomatis jadikan gambar
                   if (val.includes("http://") || val.includes("https://") || val.includes("drive.google.com")) {
                     device.image_url = formatDriveLink(val);
                     continue; 
@@ -122,6 +120,9 @@ export const fetchDevices = async () => {
                   else if (label.includes("cocok untuk")) device.best_for = val;
                   else if (label.includes("sim")) device.sim = val;
                   else if (label.includes("jaringan") || label.includes("network")) device.network = val;
+                  else if (label.includes("gambar") || label.includes("image") || label.includes("foto")) {
+                    device.image_url = formatDriveLink(val);
+                  }
                 }
                 
                 device.ram_rom = `${ram} / ${rom}`;
@@ -130,7 +131,7 @@ export const fetchDevices = async () => {
             }
           }
 
-          // SMART PRICE MATCHER
+          // FITUR BARU: Menarik Data Varian Harga (Berdasarkan Penyimpanan)
           Papa.parse(csvTextPrice, {
             header: false,
             skipEmptyLines: true,
@@ -138,30 +139,51 @@ export const fetchDevices = async () => {
               const priceRows = resultsPrice.data;
               
               devices = devices.map(device => {
-                let matchedPrice = 0;
-                // Pecah nama HP menjadi kata kunci untuk pencarian fleksibel (Misal: "Redmi", "A7", "Pro")
+                let matchedPrices = [];
+                // Pisahkan nama HP untuk logika pencarian
                 const targetWords = device.model.toLowerCase().split(" ").filter(w => w.length > 1);
 
-                for (let r = 0; r < priceRows.length; r++) {
-                  const rowTextContent = priceRows[r].join(" ").toLowerCase();
+                // Mulai mencari dari baris ke-4 (index 3) sesuai data spreadsheet Anda
+                for (let r = 3; r < priceRows.length; r++) {
+                  const row = priceRows[r];
+                  // Asumsi Kolom A (index 0) adalah nama HP-nya
+                  const rowName = row[0] ? String(row[0]).toLowerCase() : "";
                   
-                  // Cek apakah SEMUA kata kunci nama HP muncul di baris harga tersebut
-                  const isMatch = targetWords.every(word => rowTextContent.includes(word));
+                  // Jika nama baris mengandung semua kata kunci dari nama HP
+                  const isMatch = targetWords.every(word => rowName.includes(word));
 
                   if (isMatch) {
-                    for (let c = 0; c < priceRows[r].length; c++) {
-                      // Bersihkan sel dari huruf dan titik, sisakan angkanya saja
-                      const cleanNumberStr = String(priceRows[r][c]).replace(/[^0-9]/g, '');
-                      // Asumsi harga HP minimum ratusan ribu rupiah (minimal 6 digit angka)
-                      if (cleanNumberStr.length >= 6) {
-                        matchedPrice = Number(cleanNumberStr);
-                        break;
+                    // Karena data di kolom A-F, mari kita cari pasangan Storage & Harga
+                    // Logika: Mencari sel yang mengandung kata 'GB'/'TB' dan mencari angka harganya
+                    
+                    let currentStorage = "Default";
+                    let currentPrice = 0;
+
+                    for (let c = 1; c < Math.min(row.length, 6); c++) { 
+                      const cellValue = String(row[c]).trim();
+                      if (!cellValue) continue;
+
+                      // Jika sel ini mendeskripsikan varian penyimpanan (contoh: "4/64 GB")
+                      if (cellValue.toLowerCase().includes("gb") || cellValue.toLowerCase().includes("tb") || cellValue.includes("/")) {
+                         currentStorage = cellValue;
+                      } 
+                      // Jika sel berupa angka harga (contoh: "Rp 1.500.000")
+                      else {
+                        const cleanNum = cellValue.replace(/[^0-9]/g, '');
+                        if (cleanNum.length >= 6) { // Asumsi minimal harga ratusan ribu
+                          currentPrice = Number(cleanNum);
+                          // Jika ketemu harga, langsung pasangkan dengan storage terakhir dan simpan
+                          matchedPrices.push({
+                            storage: currentStorage,
+                            price: currentPrice
+                          });
+                          currentStorage = "Default"; // Reset untuk mencari varian berikutnya jika ada
+                        }
                       }
                     }
                   }
-                  if (matchedPrice > 0) break;
                 }
-                return { ...device, price: matchedPrice };
+                return { ...device, prices: matchedPrices };
               });
 
               resolve({ devices, usageCategories });
