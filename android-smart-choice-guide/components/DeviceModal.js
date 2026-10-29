@@ -55,15 +55,36 @@ export default function DeviceModal({ isOpen, device, onClose }) {
           <X size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-[#D23731]" />
         </button>
 
-        <div className="w-full md:w-2/5 bg-gray-50 dark:bg-gray-800/50 p-8 flex items-center justify-center border-r border-gray-200 dark:border-gray-800">
+        <div className="w-full md:w-2/5 bg-gray-50 dark:bg-gray-800/50 p-8 flex flex-col items-center border-r border-gray-200 dark:border-gray-800 overflow-y-auto custom-scrollbar">
+          
           {device.image_url ? (
-            <img src={device.image_url} alt={device.model} className="w-full h-auto object-contain max-h-80 drop-shadow-xl" />
+            <img src={device.image_url} alt={device.model} className="w-full h-auto object-contain max-h-80 drop-shadow-xl mt-8" />
           ) : (
-            <div className="w-48 h-64 bg-gray-200 dark:bg-gray-700 rounded-sm flex flex-col gap-3 items-center justify-center shadow-inner text-gray-400">
+            <div className="w-48 h-64 bg-gray-200 dark:bg-gray-700 rounded-sm flex flex-col gap-3 items-center justify-center shadow-inner text-gray-400 mt-8">
               <Smartphone size={48} />
               <span className="font-black uppercase tracking-wider text-sm">No Image</span>
             </div>
           )}
+
+          {/* BOX DAFTAR VARIAN HARGA */}
+          <div className="w-full mt-8">
+            <h4 className="font-black text-sm text-gray-400 uppercase tracking-widest mb-3">Varian & Harga Resmi</h4>
+            {device.prices && device.prices.length > 0 ? (
+              <div className="space-y-2">
+                {device.prices.map((varian, idx) => (
+                  <div key={idx} className="flex justify-between items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-sm">
+                    <span className="font-bold text-sm text-gray-700 dark:text-gray-300">{varian.storage}</span>
+                    <span className="font-black text-[#D23731]">Rp {varian.price.toLocaleString('id-ID')}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-red-50 dark:bg-red-900/20 text-[#D23731] font-bold p-3 text-center rounded-sm border border-red-100 dark:border-red-900/50">
+                Harga Belum Tersedia (TBA)
+              </div>
+            )}
+          </div>
+          
         </div>
 
         <div className="w-full md:w-3/5 p-6 md:p-8 overflow-y-auto custom-scrollbar">
@@ -72,11 +93,6 @@ export default function DeviceModal({ isOpen, device, onClose }) {
               {device.brand}
             </span>
             <h2 className="text-3xl font-black mt-4 text-gray-900 dark:text-white uppercase tracking-tight">{device.model}</h2>
-            {device.price > 0 && (
-              <p className="text-2xl font-extrabold text-[#D23731] mt-2">
-                Rp {Number(device.price).toLocaleString('id-ID')}
-              </p>
-            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
