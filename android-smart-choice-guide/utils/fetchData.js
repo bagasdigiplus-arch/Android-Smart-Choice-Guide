@@ -1,10 +1,29 @@
 import Papa from 'papaparse';
 
-export const fetchDevices = async () => {
-  // 1. LINK DATA UTAMA (SPEK)
-  const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
+// FITUR BARU: Auto-Convert Link Google Drive Biasa Menjadi Direct Link
+const formatDriveLink = (link) => {
+  if (!link) return "";
+  const url = link.trim();
   
-  // 2. LINK DATA HARGA
+  // Ambil ID unik dari link Google Drive biasa (format: /file/d/ID/...)
+  const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+  if (idMatch && idMatch[1]) {
+    // Mengubahnya menjadi link khusus untuk menampilkan gambar di website
+    return `https://drive.google.com/uc?export=view&id=${idMatch[1]}`;
+  }
+  
+  // Jika link sudah dalam format ID param (?id=...)
+  const idParamMatch = url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (idParamMatch && idParamMatch[1]) {
+    return `https://drive.google.com/uc?export=view&id=${idParamMatch[1]}`;
+  }
+  
+  // Jika bukan link Google Drive (misal link gambar dari web lain), biarkan apa adanya
+  return url;
+};
+
+export const fetchDevices = async () => {
+  const sheetCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=514180181&single=true&output=csv';
   const priceCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQZeCJ9MWj6KpPPEM5A6AN8ZWKiYXkISBe_LDd2Rg9057sk8BM9dGOagzZxHFyVEO9FZZPnjpCX5rWl/pub?gid=394306194&single=true&output=csv';
 
   try {
@@ -54,23 +73,22 @@ export const fetchDevices = async () => {
               } else if (cellValue && currentLabelCol !== -1) {
                 const modelName = cellValue;
                 
-                // Mengambil nama Brand dari Baris 2 (Index 1)
                 const extractedBrand = (rows[1] && rows[1][c] && rows[1][c].trim() !== "") 
                                         ? rows[1][c].trim() 
                                         : modelName.split(' ')[0];
                 
-                // MENGAMBIL LINK GAMBAR DARI BARIS 19 (Index 18)
+                // MENGAMBIL GAMBAR DARI BARIS 19 DAN LANGSUNG DI-CONVERT
                 let extractedImage = "";
                 if (rows[18] && rows[18][c] && rows[18][c].trim() !== "") {
-                  extractedImage = rows[18][c].trim();
+                  extractedImage = formatDriveLink(rows[18][c]);
                 }
                 
                 const device = {
                   id: modelName,
                   brand: extractedBrand,
                   model: modelName,
-                  image_url: extractedImage, // <-- Gambar masuk ke sini otomatis
-                  price: 0, 
+                  image_url: extractedImage, 
+                  price: 0,
                   category: currentCategoryLabel,
                   chipset: "",
                   ram_rom: "",
@@ -92,7 +110,6 @@ export const fetchDevices = async () => {
                 let ram = "";
                 let rom = "";
 
-                // Mengekstrak spesifikasi lainnya dari baris-baris di bawahnya
                 for (let r = headerRowIndex + 1; r < rows.length; r++) {
                   const label = rows[r][currentLabelCol]?.trim().toLowerCase();
                   const val = rows[r][c]?.trim();
@@ -115,8 +132,10 @@ export const fetchDevices = async () => {
                   else if (label.includes("cocok untuk")) device.best_for = val;
                   else if (label.includes("sim")) device.sim = val;
                   else if (label.includes("jaringan") || label.includes("network")) device.network = val;
-                  // Fallback: Jika ada label spesifik bertuliskan gambar, tetap diutamakan
-                  else if (label.includes("gambar") || label.includes("image") || label.includes("foto")) device.image_url = val;
+                  // Jika ada baris bernama gambar di bawah, juga dikonversi otomatis
+                  else if (label.includes("gambar") || label.includes("image") || label.includes("foto")) {
+                    device.image_url = formatDriveLink(val);
+                  }
                 }
                 
                 device.ram_rom = `${ram} / ${rom}`;
@@ -125,7 +144,6 @@ export const fetchDevices = async () => {
             }
           }
 
-          // Proses Harga
           Papa.parse(csvTextPrice, {
             header: false,
             skipEmptyLines: true,
