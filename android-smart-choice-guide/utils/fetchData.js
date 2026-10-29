@@ -160,4 +160,6 @@ export const fetchDevices = async () => {
     });
   } catch (error) {
     console.error("Error fetching data:", error);
-    return { devices: [], usage
+    return { devices: [], usageCategories: [] };
+  }
+};
