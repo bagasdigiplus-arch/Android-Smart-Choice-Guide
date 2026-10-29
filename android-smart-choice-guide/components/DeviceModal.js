@@ -2,9 +2,19 @@ import {
   X, Cpu, HardDrive, Smartphone, Camera, Battery, Zap, 
   Shield, Box, RefreshCw, Star, ThumbsUp, Wifi, CheckCircle 
 } from 'lucide-react';
+import { modelKey } from '@/utils/price-loader'; // <-- BARU
 
-export default function DeviceModal({ isOpen, device, onClose }) {
+export default function DeviceModal({ isOpen, device, prices, onClose }) { // <-- BARU: prop "prices"
   if (!isOpen || !device) return null;
+
+  // BARU: ambil varian & harga dari tab harga (dicocokkan lewat nama model).
+  // Jika tidak ada, jatuh kembali ke device.prices (cara lama) agar tidak ada yang rusak.
+  const fromSheet = prices?.[modelKey(device.model)];
+  const variants = (
+    fromSheet && fromSheet.length
+      ? fromSheet.map((v) => ({ label: v.variant || "Standar", price: v.price, normal: v.normal, promo: v.promo }))
+      : (device.prices || []).map((v) => ({ label: v.storage, price: v.price }))
+  ).filter((v) => typeof v.price === "number");
 
   const SpecItem = ({ icon: Icon, label, value }) => {
     if (!value) return null;
@@ -58,7 +68,16 @@ export default function DeviceModal({ isOpen, device, onClose }) {
         <div className="w-full md:w-2/5 bg-gray-50 dark:bg-gray-800/50 p-8 flex flex-col items-center border-r border-gray-200 dark:border-gray-800 overflow-y-auto custom-scrollbar">
           
           {device.image_url ? (
-            <img src={device.image_url} alt={device.model} className="w-full h-auto object-contain max-h-80 drop-shadow-xl mt-8" />
+            <img
+              src={device.image_url}
+              alt={device.model}
+              referrerPolicy="no-referrer" // BARU: membantu jika situs gambar memblokir hotlink
+              onError={(e) => { // BARU: jika gambar gagal, tampilkan placeholder, bukan ikon rusak
+                e.currentTarget.onerror = null;
+                e.currentTarget.style.display = "none";
+              }}
+              className="w-full h-auto object-contain max-h-80 drop-shadow-xl mt-8"
+            />
           ) : (
             <div className="w-48 h-64 bg-gray-200 dark:bg-gray-700 rounded-sm flex flex-col gap-3 items-center justify-center shadow-inner text-gray-400 mt-8">
               <Smartphone size={48} />
@@ -69,12 +88,19 @@ export default function DeviceModal({ isOpen, device, onClose }) {
           {/* BOX DAFTAR VARIAN HARGA */}
           <div className="w-full mt-8">
             <h4 className="font-black text-sm text-gray-400 uppercase tracking-widest mb-3">Varian & Harga Resmi</h4>
-            {device.prices && device.prices.length > 0 ? (
+            {variants.length > 0 ? (
               <div className="space-y-2">
-                {device.prices.map((varian, idx) => (
+                {variants.map((varian, idx) => (
                   <div key={idx} className="flex justify-between items-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-3 rounded-sm">
-                    <span className="font-bold text-sm text-gray-700 dark:text-gray-300">{varian.storage}</span>
-                    <span className="font-black text-[#D23731]">Rp {varian.price.toLocaleString('id-ID')}</span>
+                    <span className="font-bold text-sm text-gray-700 dark:text-gray-300">{varian.label}</span>
+                    <div className="text-right">
+                      <span className="font-black text-[#D23731]">Rp {varian.price.toLocaleString('id-ID')}</span>
+                      {varian.normal && varian.promo && varian.promo < varian.normal && (
+                        <span className="block text-xs font-semibold text-gray-400 line-through">
+                          Rp {varian.normal.toLocaleString('id-ID')}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
