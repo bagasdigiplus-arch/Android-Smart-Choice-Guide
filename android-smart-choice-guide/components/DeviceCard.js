@@ -1,6 +1,13 @@
 import { Cpu, HardDrive, Image as ImageIcon } from 'lucide-react';
 
 export default function DeviceCard({ device, onClick }) {
+  // Mencari harga terendah untuk ditampilkan di halaman depan
+  const getDisplayPrice = () => {
+    if (!device.prices || device.prices.length === 0) return "Harga TBA";
+    const lowestPrice = Math.min(...device.prices.map(p => p.price));
+    return `Mulai Rp ${lowestPrice.toLocaleString('id-ID')}`;
+  };
+
   return (
     <div 
       onClick={() => onClick(device)}
@@ -42,7 +49,7 @@ export default function DeviceCard({ device, onClick }) {
 
         <div className="pt-4 border-t border-gray-100 dark:border-gray-800 mt-auto">
           <p className="text-xl font-black text-gray-900 dark:text-white">
-            {device.price > 0 ? `Rp ${Number(device.price).toLocaleString('id-ID')}` : "Harga TBA"}
+            {getDisplayPrice()}
           </p>
         </div>
       </div>
